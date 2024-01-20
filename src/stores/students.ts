@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
-import type { Unsubscribe } from 'firebase/auth'
-import { db } from '@/config/firebase'
 import { DocumentReference, collection, doc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore'
+import { db } from '@/config/firebase'
 import customPromise from '@/common/customPromise'
+import type { Unsubscribe } from 'firebase/auth'
 
 interface ScoreRecord {
   date: Date
@@ -93,7 +93,6 @@ const studentStore = useStudentStore()
 const studentsCollection = collection(db, 'students')
 const studentsNav = doc(studentsCollection, 'nav')
 onSnapshot(studentsNav, (newDoc) => {
-  console.log(newDoc.data())
   studentStore.students = newDoc.data()!.students.map((studentStr: string) => {
     const [id, name, nextCourseTime] = studentStr.split(',')
     return {id, name, nextCourseTime}

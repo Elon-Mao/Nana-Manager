@@ -2,19 +2,21 @@
 import { reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStudentStore } from '@/stores/students'
-import type { FormInstance, FormRules } from 'element-plus'
 import { addUnloadConfirm, removeUnloadConfirm } from '@/common/beforeunload'
+import type { FormInstance, FormRules } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
 const studentStore = useStudentStore()
+const editingStudent = ref()
+const mode = ref('view')
 const grades = ['G3', 'G2', 'G1', 'C3', 'C2', 'C1', 'X6', 'X5', 'X4', 'X3', 'X2', 'X1']
 
 watch(
   () => route.params.id,
   async (newId) => {
     await studentStore.getStudent(newId as string)
-    editingStudent.value = studentStore.student
+    editingStudent.value = {...studentStore.student}
   },
   { immediate: true }
 )
@@ -27,7 +29,7 @@ watch(
   },
   { immediate: true }
 )
-const editingStudent = ref()
+
 const studentForm = ref<FormInstance>()
 const rules = reactive<FormRules<typeof editingStudent>>({
   name: [
@@ -37,7 +39,6 @@ const rules = reactive<FormRules<typeof editingStudent>>({
   grade: [{ required: true, message: 'Please select grade' }],
 })
 
-const mode = ref('view')
 const addStudent = () => {
   addUnloadConfirm()
   mode.value = 'add'
@@ -51,11 +52,12 @@ const addStudent = () => {
     scoreRecords: []
   }
 }
-
 const editStudent = () => {
+  addUnloadConfirm()
   mode.value = 'edit'
 }
 const saveStudent = async () => {
+  await studentForm.value!.validate()
   if (mode.value === 'add') {
     await studentStore.addStudent(editingStudent.value)
     router.push(`/students/${studentStore.students[0].id}`)
@@ -66,8 +68,10 @@ const saveStudent = async () => {
   removeUnloadConfirm()
 }
 const cancelEdit = () => {
-  addUnloadConfirm()
+  studentForm.value!.resetFields()
+  editingStudent.value = {...studentStore.student}
   mode.value = 'view'
+  removeUnloadConfirm()
 }
 </script>
 

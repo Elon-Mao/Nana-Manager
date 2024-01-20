@@ -1,8 +1,8 @@
 import router from '@/router'
 import { defineStore } from 'pinia'
-import type { User } from 'firebase/auth'
 import { auth } from '@/config/firebase'
 import { useSystemStore } from '@/stores/system'
+import type { User } from 'firebase/auth'
 
 export const useUserStore = defineStore('user', {
   state: () => {
