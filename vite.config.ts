@@ -16,5 +16,5 @@ export default defineConfig({
   build: {
     target: 'esnext'
   },
-  base: '/NANA-MANAGER'
+  base: '/Nana-Manager'
 })
