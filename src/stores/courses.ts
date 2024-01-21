@@ -1,9 +1,7 @@
 import { defineStore } from 'pinia'
-import { DocumentReference, collection, doc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/config/firebase'
 import customPromise from '@/common/customPromise'
-import { useStudentStore } from '@/stores/students'
-import type { Unsubscribe } from 'firebase/auth'
 
 export interface Course {
   date: string
@@ -20,61 +18,51 @@ interface CourseNav {
   date: string
 }
 
-const saveCourses = async (courses: CourseNav[], newCourse: Course) => {
-  await customPromise(Promise.all([setDoc(courseDoc!, newCourse), updateDoc(coursesNav, {
-    courses: courses.map((course) => `${course.id},${course.date}`)
-  })]))
-}
-let courseDoc: DocumentReference | null = null
-let courseSnapshot: Unsubscribe | null = null
-
 const useCourseStore = defineStore('courses', {
   state: () => {
     return {
       courses: [] as CourseNav[],
-      course: null as Course | null
+      courseMap: {} as Record<string, Course>
     }
   },
   actions: {
-    subscribe() {
-      if (courseSnapshot) {
-        courseSnapshot()
-      }
-      courseSnapshot = onSnapshot(courseDoc!, (newDoc) => {
-        this.course = newDoc.data() as Course
-      })
-    },
-    async getCourse(id: string) {
-      if (!id) {
-        if (courseSnapshot) {
-          courseSnapshot()
-        }
-        this.course = null
-        courseSnapshot = null
+    getCourse(id: string) {
+      if (this.courseMap[id]) {
         return
       }
-      courseDoc = doc(coursesCollection, id)
-      this.subscribe()
-      await customPromise(getDoc(courseDoc))
+      onSnapshot(doc(coursesCollection, id), (newDoc) => {
+        this.courseMap[id] = newDoc.data() as Course
+      })
     },
-    async setCourse(course: Course) {
-      const id = courseDoc!.id
+    async setCourse(id: string, course: Course) {
       const newCourses = [...this.courses]
       newCourses[newCourses.findIndex((courseItem) => courseItem.id === id)] = {
         id,
         date: course.date
       }
-      await saveCourses(newCourses, course)
+      await customPromise(Promise.all([setDoc(doc(coursesCollection, id), course), updateDoc(coursesNav, {
+        courses: newCourses.map((course) => `${course.id},${course.date}`)
+      })]))
     },
     async addCourse(course: Course) {
-      courseDoc = doc(coursesCollection)
-      this.subscribe()
+      const courseDoc = doc(coursesCollection)
+      this.getCourse(courseDoc.id)
       const newCourses = [...this.courses]
       newCourses.unshift({
         id: courseDoc.id,
         date: course.date
       })
-      await saveCourses(newCourses, course)
+      await customPromise(Promise.all([setDoc(courseDoc, course), updateDoc(coursesNav, {
+        courses: newCourses.map((course) => `${course.id},${course.date}`)
+      })]))
+    },
+    async deleteCourse(id: string) {
+      const newCourses = [...this.courses]
+      newCourses.splice(newCourses.findIndex((course) => course.id === id), 1)
+      await customPromise(Promise.all([deleteDoc(doc(coursesCollection, id)), updateDoc(coursesNav, {
+        courses: newCourses.map((course) => `${course.id},${course.date}`)
+      })]))
+      delete this.courseMap[id]
     }
   },
 })

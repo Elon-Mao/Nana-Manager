@@ -1,16 +1,22 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, nextTick, reactive } from 'vue'
+import { ref, watch, computed, onMounted, nextTick, reactive, type WatchStopHandle } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCourseStore } from '@/stores/courses'
+import { useStudentStore } from '@/stores/students'
 import { getFormatDate } from '@/common/dateTools'
 import { addUnloadConfirm, removeUnloadConfirm } from '@/common/beforeunload'
 import CourseSchedule from '@/components/CourseSchedule.vue'
-import type { CarouselInstance, FormRules } from 'element-plus'
+import GradeSelect from '@/components/GradeSelect.vue'
+import { ElMessage } from 'element-plus'
+import type { CarouselInstance, FormInstance, FormRules } from 'element-plus'
 
 const route = useRoute()
+const router = useRouter()
 const courseStore = useCourseStore()
+const studentStore = useStudentStore()
 const date = ref(getFormatDate(new Date()))
 const carousel = ref<CarouselInstance>()
+const courseForm = ref<FormInstance>()
 const editingCourse = ref()
 const mondayDateList = computed(() => {
   const difDay = new Date(date.value).getDay() - 1
@@ -21,18 +27,26 @@ const mondayDateList = computed(() => {
   })
 })
 
+let watchCurrentCourse = null as WatchStopHandle | null
+const currentCourse = ref()
 watch(
   () => route.params.id,
   async (newId) => {
-    await courseStore.getCourse(newId as string)
-    if (!courseStore.course) {
-      return
+    courseStore.getCourse(newId as string)
+    if (watchCurrentCourse) {
+      watchCurrentCourse()
     }
-    editingCourse.value = { ...courseStore.course }
-    dialogVisible.value = true
+    watchCurrentCourse = watch(() => courseStore.courseMap[route.params.id as string], () => {
+      currentCourse.value = courseStore.courseMap[route.params.id as string]
+      if (currentCourse.value) {
+        editingCourse.value = { ...currentCourse.value }
+        dialogVisible.value = true
+      }
+    }, { immediate: true })
   },
   { immediate: true }
 )
+
 onMounted(() => {
   watch(mondayDateList, () => {
     nextTick(() => {
@@ -50,30 +64,71 @@ const onChange = (index: number) => {
 const dialogVisible = ref(false)
 const mode = ref('view')
 const rules = reactive<FormRules<typeof editingCourse>>({
-  name: [
-    { required: true, message: 'Please input name', trigger: 'blur' },
-    { min: 2, max: 16, message: 'Length should be 2 to 16', trigger: 'blur' },
-  ],
+  date: [{ required: true, message: 'Please select date' }],
+  startTime: [{ required: true, message: 'Please select start time' }],
+  endTime: [{ required: true, message: 'Please select end time' }],
   grade: [{ required: true, message: 'Please select grade' }],
+  studentIds: [{ required: true, message: 'Please select students' }]
 })
-const onOpen = () => {
-  addUnloadConfirm()
-}
-const onClose = () => {
-  removeUnloadConfirm()
-}
+const gradeStudents = computed(() => {
+  return studentStore.students.filter((student) => editingCourse.value && student.grade === editingCourse.value.grade)
+})
+
 const addCourse = () => {
+  addUnloadConfirm()
+  mode.value = 'add'
+  courseForm.value?.resetFields()
   editingCourse.value = {
     date: date.value,
     startTime: '',
     endTime: '',
-    grade: 0,
     studentIds: [],
     summary: '',
     remark: '',
   }
-  mode.value = 'add'
   dialogVisible.value = true
+}
+const editCourse = () => {
+  addUnloadConfirm()
+  mode.value = 'edit'
+}
+
+const saveCourse = async () => {
+  await courseForm.value!.validate()
+  const sameDateCourses = courseStore.courses
+    .filter((course) => course.date === editingCourse.value.date && course.id !== route.params.id)
+    .map((course) => courseStore.courseMap[course.id])
+  for (const course of sameDateCourses) {
+    if (editingCourse.value.startTime < course.endTime && editingCourse.value.endTime > course.startTime) {
+      ElMessage.error('Time conflict with other course')
+      return
+    }
+  }
+  if (mode.value === 'add') {
+    await courseStore.addCourse(editingCourse.value)
+    router.push(`/courses/${courseStore.courses[0].id}`)
+  } else {
+    await courseStore.setCourse(route.params.id as string, editingCourse.value)
+  }
+  mode.value = 'view'
+  removeUnloadConfirm()
+}
+const cancelEdit = () => {
+  courseForm.value!.resetFields()
+  if (mode.value === 'add') {
+    dialogVisible.value = false
+  } else {
+    editingCourse.value = { ...currentCourse.value }
+  }
+  mode.value = 'view'
+  removeUnloadConfirm()
+}
+const deleteCourse = async () => {
+  await courseStore.deleteCourse(route.params.id as string)
+  dialogVisible.value = false
+}
+const onClose = () => {
+  router.push('/courses/')
 }
 </script>
 
@@ -88,26 +143,58 @@ const addCourse = () => {
       </el-carousel-item>
     </el-carousel>
   </div>
-  <el-dialog v-model="dialogVisible" title="Tips" width="80%" @open="onOpen" @close="onClose">
+  <el-dialog v-model="dialogVisible" width="800" :close-on-click-modal="false" @close="onClose">
     <el-form ref="courseForm" :model="editingCourse" :disabled="mode === 'view'" status-icon :rules="rules"
       label-width="120px">
       <el-form-item label="Date" prop="date">
-        <el-date-picker v-model="editingCourse.date" placeholder="Pick a day" />
+        <el-date-picker v-model="editingCourse.date" value-format="YYYY/MM/DD" placeholder="Pick a day" />
       </el-form-item>
-      <el-form-item label="Time" prop="grade" class="time-select">
-        <el-time-select v-model="editingCourse.startTime" :max-time="editingCourse.endTime" placeholder="Start time"
-          start="08:00" step="00:30" end="21:30" />
-        <el-time-select v-model="editingCourse.endTime" :min-time="editingCourse.startTime" placeholder="End time"
-          start="08:00" step="00:30" end="21:30" />
+      <div class="form-select">
+        <el-form-item label="Start time" prop="startTime">
+          <el-time-select v-model="editingCourse.startTime" :max-time="editingCourse.endTime" :clearable="false"
+            start="08:00" step="00:30" end="21:30" />
+        </el-form-item>
+        <el-form-item label="Grade" prop="grade">
+          <grade-select v-model="editingCourse.grade" @change="editingCourse.studentIds = []"></grade-select>
+        </el-form-item>
+      </div>
+      <div class="form-select">
+        <el-form-item label="End time" prop="endTime">
+          <el-time-select v-model="editingCourse.endTime" :min-time="editingCourse.startTime" :clearable="false"
+            start="08:00" step="00:30" end="21:30" />
+        </el-form-item>
+        <el-form-item label="Students" prop="studentIds">
+          <template v-if="mode === 'view'">
+            <el-link v-for="studentId in editingCourse.studentIds" :key="studentId" type="primary"
+              :href="`/students/${studentId}`">{{ studentStore.students.find((student) => student.id === studentId)!.name
+              }}</el-link>
+          </template>
+          <el-select v-else v-model="editingCourse.studentIds" multiple :clearable="true"
+            no-data-text="No students in current grade">
+            <el-option v-for="student in gradeStudents" :key="student.id" :label="student.name" :value="student.id" />
+          </el-select>
+        </el-form-item>
+      </div>
+      <el-form-item class="form-textarea" label="Summary" prop="summary">
+        <el-input v-model="editingCourse.summary" :rows="2" type="textarea" />
+      </el-form-item>
+      <el-form-item class="form-textarea" label="Remark" prop="remark">
+        <el-input v-model="editingCourse.remark" :rows="2" type="textarea" />
       </el-form-item>
     </el-form>
     <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="dialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="dialogVisible = false">
-          Confirm
-        </el-button>
-      </span>
+      <template v-if="mode === 'view'">
+        <el-button type="primary" @click="editCourse">Edit</el-button>
+        <el-popconfirm title="Are you sure to delete this?" @confirm="deleteCourse">
+          <template #reference>
+            <el-button type="danger">Delete</el-button>
+          </template>
+        </el-popconfirm>
+      </template>
+      <template v-else>
+        <el-button type="primary" @click="saveCourse">Save</el-button>
+        <el-button @click="cancelEdit">Cancel</el-button>
+      </template>
     </template>
   </el-dialog>
 </template>
@@ -131,8 +218,20 @@ const addCourse = () => {
   width: 100vw;
 }
 
-.time-select .el-select {
-  width: 40%;
+.form-select {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.form-select .el-select {
+  width: 220px;
+}
+
+form a {
   margin-right: 10px;
+}
+
+.form-textarea {
+  width: 680px;
 }
 </style>

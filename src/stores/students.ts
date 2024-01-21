@@ -22,15 +22,16 @@ export interface Student {
   scoreRecords: ScoreRecord[]
 }
 
-interface StudentNav {
+export interface StudentNav {
   id: string
   name: string
+  grade: number
   nextCourseTime: Date
 }
 
 const saveStudents = async (students: StudentNav[], newStudent: Student) => {
   await customPromise(Promise.all([setDoc(studentDoc!, newStudent), updateDoc(studentsNav, {
-    students: students.map((student) => `${student.id},${student.name},${student.nextCourseTime}`)
+    students: students.map((student) => `${student.id},${student.name},${student.grade},${student.nextCourseTime}`)
   })]))
 }
 let studentDoc: DocumentReference | null = null
@@ -71,6 +72,7 @@ const useStudentStore = defineStore('students', {
       newStudents[newStudents.findIndex((studentItem) => studentItem.id === id)] = {
         id,
         name: student.name,
+        grade: student.grade,
         nextCourseTime: student.nextCourseTime
       }
       await saveStudents(newStudents, student)
@@ -82,6 +84,7 @@ const useStudentStore = defineStore('students', {
       newStudents.unshift({
         id: studentDoc.id,
         name: student.name,
+        grade: student.grade,
         nextCourseTime: student.nextCourseTime
       })
       await saveStudents(newStudents, student)
@@ -94,8 +97,8 @@ const studentsCollection = collection(db, 'students')
 const studentsNav = doc(studentsCollection, 'nav')
 onSnapshot(studentsNav, (newDoc) => {
   studentStore.students = newDoc.data()!.students.map((studentStr: string) => {
-    const [id, name, nextCourseTime] = studentStr.split(',')
-    return {id, name, nextCourseTime}
+    const [id, name, grade, nextCourseTime] = studentStr.split(',')
+    return {id, name, grade: Number(grade), nextCourseTime}
   })
 })
 await customPromise(getDoc(studentsNav))

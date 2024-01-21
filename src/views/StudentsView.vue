@@ -3,6 +3,7 @@ import { reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStudentStore } from '@/stores/students'
 import { addUnloadConfirm, removeUnloadConfirm } from '@/common/beforeunload'
+import GradeSelect from '@/components/GradeSelect.vue'
 import type { FormInstance, FormRules } from 'element-plus'
 
 const route = useRoute()
@@ -10,13 +11,12 @@ const router = useRouter()
 const studentStore = useStudentStore()
 const editingStudent = ref()
 const mode = ref('view')
-const grades = ['G3', 'G2', 'G1', 'C3', 'C2', 'C1', 'X6', 'X5', 'X4', 'X3', 'X2', 'X1']
 
 watch(
   () => route.params.id,
   async (newId) => {
     await studentStore.getStudent(newId as string)
-    editingStudent.value = {...studentStore.student}
+    editingStudent.value = studentStore.student ? {...studentStore.student} : undefined
   },
   { immediate: true }
 )
@@ -42,6 +42,7 @@ const rules = reactive<FormRules<typeof editingStudent>>({
 const addStudent = () => {
   addUnloadConfirm()
   mode.value = 'add'
+  studentForm.value?.resetFields()
   editingStudent.value = {
     name: '',
     nextCourseTime: '',
@@ -100,9 +101,7 @@ const cancelEdit = () => {
             <el-input v-model="editingStudent.name" />
           </el-form-item>
           <el-form-item label="Grade" prop="grade">
-            <el-select v-model="editingStudent.grade">
-              <el-option v-for="(grade, index) in grades" :key="grade" :label="grade" :value="12 - index" />
-            </el-select>
+            <grade-select v-model="editingStudent.grade"></grade-select>
           </el-form-item>
         </el-form>
       </div>
