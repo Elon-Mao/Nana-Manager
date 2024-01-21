@@ -170,7 +170,7 @@ const onClose = () => {
               }}</el-link>
           </template>
           <el-select v-else v-model="editingCourse.studentIds" multiple :clearable="true"
-            no-data-text="No students in current grade">
+            no-data-text="No students in current grade" :multiple-limit="3">
             <el-option v-for="student in gradeStudents" :key="student.id" :label="student.name" :value="student.id" />
           </el-select>
         </el-form-item>

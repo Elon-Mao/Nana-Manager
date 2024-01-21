@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { collection, deleteDoc, doc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/config/firebase'
 import customPromise from '@/common/customPromise'
+import { useStudentStore } from './students'
 
 export interface Course {
   date: string
@@ -40,9 +41,15 @@ const useCourseStore = defineStore('courses', {
         id,
         date: course.date
       }
+      const studentStore = useStudentStore()
+      const oldCourse = this.courseMap[id]
       await customPromise(Promise.all([setDoc(doc(coursesCollection, id), course), updateDoc(coursesNav, {
         courses: newCourses.map((course) => `${course.id},${course.date}`)
-      })]))
+      }), ...course.studentIds.filter((studentId) => !oldCourse.studentIds.includes(studentId))
+        .map((studentId) => studentStore.addCourse(studentId, id)
+        ), ...oldCourse.studentIds.filter((studentId) => !course.studentIds.includes(studentId))
+          .map((studentId) => studentStore.deleteCourse(studentId, id)
+          )]))
     },
     async addCourse(course: Course) {
       const courseDoc = doc(coursesCollection)
@@ -52,16 +59,18 @@ const useCourseStore = defineStore('courses', {
         id: courseDoc.id,
         date: course.date
       })
+      const studentStore = useStudentStore()
       await customPromise(Promise.all([setDoc(courseDoc, course), updateDoc(coursesNav, {
         courses: newCourses.map((course) => `${course.id},${course.date}`)
-      })]))
+      }), ...course.studentIds.map((studentId) => studentStore.addCourse(studentId, courseDoc.id))]))
     },
     async deleteCourse(id: string) {
       const newCourses = [...this.courses]
       newCourses.splice(newCourses.findIndex((course) => course.id === id), 1)
+      const studentStore = useStudentStore()
       await customPromise(Promise.all([deleteDoc(doc(coursesCollection, id)), updateDoc(coursesNav, {
         courses: newCourses.map((course) => `${course.id},${course.date}`)
-      })]))
+      }), ...this.courseMap[id].studentIds.map((studentId) => studentStore.deleteCourse(studentId, id))]))
       delete this.courseMap[id]
     }
   },

@@ -11,14 +11,9 @@ interface ScoreRecord {
 }
 
 export interface Student {
-  updateDate: Date
   name: string
   grade: number
-  nextCourseTime: Date
-  totalHours: number
-  remainHours: number
-  totalCourses: string[]
-  remainCourses: string[]
+  courseIds: string[]
   scoreRecords: ScoreRecord[]
 }
 
@@ -26,12 +21,11 @@ export interface StudentNav {
   id: string
   name: string
   grade: number
-  nextCourseTime: Date
 }
 
 const saveStudents = async (students: StudentNav[], newStudent: Student) => {
   await customPromise(Promise.all([setDoc(studentDoc!, newStudent), updateDoc(studentsNav, {
-    students: students.map((student) => `${student.id},${student.name},${student.grade},${student.nextCourseTime}`)
+    students: students.map((student) => `${student.id},${student.name},${student.grade}`)
   })]))
 }
 let studentDoc: DocumentReference | null = null
@@ -72,8 +66,7 @@ const useStudentStore = defineStore('students', {
       newStudents[newStudents.findIndex((studentItem) => studentItem.id === id)] = {
         id,
         name: student.name,
-        grade: student.grade,
-        nextCourseTime: student.nextCourseTime
+        grade: student.grade
       }
       await saveStudents(newStudents, student)
     },
@@ -84,10 +77,28 @@ const useStudentStore = defineStore('students', {
       newStudents.unshift({
         id: studentDoc.id,
         name: student.name,
-        grade: student.grade,
-        nextCourseTime: student.nextCourseTime
+        grade: student.grade
       })
       await saveStudents(newStudents, student)
+    },
+    async addCourse(studentId: string, courseId: string) {
+      const studentDoc = doc(studentsCollection, studentId)
+      const student = (await getDoc(studentDoc)).data() as Student
+      if (student.courseIds.includes(courseId)) {
+        return
+      }
+      student.courseIds.push(courseId)
+      await updateDoc(doc(studentsCollection, studentId), {
+        courseIds: student.courseIds
+      })
+    },
+    async deleteCourse(studentId: string, courseId: string) {
+      const studentDoc = doc(studentsCollection, studentId)
+      const student = (await getDoc(studentDoc)).data() as Student
+      student.courseIds.splice(student.courseIds.findIndex((id) => id === courseId), 1)
+      await updateDoc(doc(studentsCollection, studentId), {
+        courseIds: student.courseIds
+      })
     }
   },
 })
@@ -97,8 +108,8 @@ const studentsCollection = collection(db, 'students')
 const studentsNav = doc(studentsCollection, 'nav')
 onSnapshot(studentsNav, (newDoc) => {
   studentStore.students = newDoc.data()!.students.map((studentStr: string) => {
-    const [id, name, grade, nextCourseTime] = studentStr.split(',')
-    return {id, name, grade: Number(grade), nextCourseTime}
+    const [id, name, grade] = studentStr.split(',')
+    return {id, name, grade: Number(grade)}
   })
 })
 await customPromise(getDoc(studentsNav))

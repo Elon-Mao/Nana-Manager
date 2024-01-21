@@ -16,7 +16,7 @@ watch(
   () => route.params.id,
   async (newId) => {
     await studentStore.getStudent(newId as string)
-    editingStudent.value = studentStore.student ? {...studentStore.student} : undefined
+    editingStudent.value = studentStore.student ? { ...studentStore.student } : undefined
   },
   { immediate: true }
 )
@@ -45,11 +45,7 @@ const addStudent = () => {
   studentForm.value?.resetFields()
   editingStudent.value = {
     name: '',
-    nextCourseTime: '',
-    totalHours: 0,
-    remainHours: 0,
-    totalCourses: [],
-    remainCourses: [],
+    courseIds: [],
     scoreRecords: []
   }
 }
@@ -70,7 +66,7 @@ const saveStudent = async () => {
 }
 const cancelEdit = () => {
   studentForm.value!.resetFields()
-  editingStudent.value = {...studentStore.student}
+  editingStudent.value = { ...studentStore.student }
   mode.value = 'view'
   removeUnloadConfirm()
 }
@@ -104,6 +100,18 @@ const cancelEdit = () => {
             <grade-select v-model="editingStudent.grade"></grade-select>
           </el-form-item>
         </el-form>
+        <!-- <el-collapse>
+          <el-collapse-item v-for="" title="Consistency" name="1">
+            <div>
+              Consistent with real life: in line with the process and logic of real
+              life, and comply with languages and habits that the users are used to;
+            </div>
+            <div>
+              Consistent within interface: all elements should be consistent, such
+              as: design style, icons and texts, position of elements, etc.
+            </div>
+          </el-collapse-item>
+        </el-collapse> -->
       </div>
       <el-empty v-else />
     </div>
@@ -134,11 +142,12 @@ const cancelEdit = () => {
   display: flex;
   flex-direction: column;
   position: relative;
+  padding: 0 50px;
 }
 
 .button-group {
   position: absolute;
-  left: 650px;
+  left: 700px;
 }
 
 form {
