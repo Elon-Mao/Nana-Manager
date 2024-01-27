@@ -15,19 +15,23 @@ const mode = ref('view')
 watch(
   () => route.params.id,
   async (newId) => {
-    await studentStore.getStudent(newId as string)
-    editingStudent.value = studentStore.student ? { ...studentStore.student } : undefined
-  },
-  { immediate: true }
+    studentStore.getById(newId as string)
+  }, { immediate: true }
 )
 watch(
-  () => studentStore.students,
-  () => {
-    if (!route.params.id && studentStore.students.length > 0) {
-      router.push(`/students/${studentStore.students[0].id}`)
+  () => studentStore.entityMap[route.params.id as string],
+  (newStudent) => {
+    if (newStudent) {
+      editingStudent.value = { ...newStudent }
     }
-  },
-  { immediate: true }
+  }, { immediate: true })
+watch(
+  () => studentStore.navs,
+  () => {
+    if (!route.params.id && studentStore.navs.length > 0) {
+      router.push(`/students/${studentStore.navs[0].id}`)
+    }
+  }, { immediate: true }
 )
 
 const studentForm = ref<FormInstance>()
@@ -56,17 +60,17 @@ const editStudent = () => {
 const saveStudent = async () => {
   await studentForm.value!.validate()
   if (mode.value === 'add') {
-    await studentStore.addStudent(editingStudent.value)
-    router.push(`/students/${studentStore.students[0].id}`)
+    await studentStore.addEntity(editingStudent.value)
+    router.push(`/students/${studentStore.navs[0].id}`)
   } else {
-    await studentStore.setStudent(editingStudent.value)
+    await studentStore.setById(route.params.id as string, editingStudent.value)
   }
   mode.value = 'view'
   removeUnloadConfirm()
 }
 const cancelEdit = () => {
   studentForm.value!.resetFields()
-  editingStudent.value = { ...studentStore.student }
+  editingStudent.value = { ...studentStore.entityMap[route.params.id as string] }
   mode.value = 'view'
   removeUnloadConfirm()
 }
@@ -77,7 +81,7 @@ const cancelEdit = () => {
     <div class="left">
       <el-button type="primary" @click="addStudent">Add Student</el-button>
       <el-menu :default-active="route.path" router>
-        <el-menu-item v-for="student in studentStore.students" :key="student.id" :index="`/students/${student.id}`">
+        <el-menu-item v-for="student in studentStore.navs" :key="student.id" :index="`/students/${student.id}`">
           {{ student.name }}
         </el-menu-item>
       </el-menu>

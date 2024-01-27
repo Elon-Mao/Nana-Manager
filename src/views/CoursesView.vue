@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, nextTick, reactive, type WatchStopHandle } from 'vue'
+import { ref, watch, computed, onMounted, nextTick, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCourseStore } from '@/stores/courses'
 import { useStudentStore } from '@/stores/students'
@@ -27,25 +27,19 @@ const mondayDateList = computed(() => {
   })
 })
 
-let watchCurrentCourse = null as WatchStopHandle | null
-const currentCourse = ref()
 watch(
   () => route.params.id,
   async (newId) => {
-    courseStore.getCourse(newId as string)
-    if (watchCurrentCourse) {
-      watchCurrentCourse()
-    }
-    watchCurrentCourse = watch(() => courseStore.courseMap[route.params.id as string], () => {
-      currentCourse.value = courseStore.courseMap[route.params.id as string]
-      if (currentCourse.value) {
-        editingCourse.value = { ...currentCourse.value }
-        dialogVisible.value = true
-      }
-    }, { immediate: true })
-  },
-  { immediate: true }
+    courseStore.getById(newId as string)
+  }, { immediate: true }
 )
+watch(
+  () => courseStore.entityMap[route.params.id as string], (newCourse) => {
+  if (newCourse) {
+    editingCourse.value = { ...newCourse }
+    dialogVisible.value = true
+  }
+}, { immediate: true })
 
 onMounted(() => {
   watch(mondayDateList, () => {
@@ -71,7 +65,7 @@ const rules = reactive<FormRules<typeof editingCourse>>({
   studentIds: [{ required: true, message: 'Please select students' }]
 })
 const gradeStudents = computed(() => {
-  return studentStore.students.filter((student) => editingCourse.value && student.grade === editingCourse.value.grade)
+  return studentStore.navs.filter((student) => editingCourse.value && student.grade === editingCourse.value.grade)
 })
 
 const addCourse = () => {
@@ -95,9 +89,9 @@ const editCourse = () => {
 
 const saveCourse = async () => {
   await courseForm.value!.validate()
-  const sameDateCourses = courseStore.courses
+  const sameDateCourses = courseStore.navs
     .filter((course) => course.date === editingCourse.value.date && course.id !== route.params.id)
-    .map((course) => courseStore.courseMap[course.id])
+    .map((course) => courseStore.entityMap[course.id])
   for (const course of sameDateCourses) {
     if (editingCourse.value.startTime < course.endTime && editingCourse.value.endTime > course.startTime) {
       ElMessage.error('Time conflict with other course')
@@ -105,10 +99,10 @@ const saveCourse = async () => {
     }
   }
   if (mode.value === 'add') {
-    await courseStore.addCourse(editingCourse.value)
-    router.push(`/courses/${courseStore.courses[0].id}`)
+    await courseStore.addEntity(editingCourse.value)
+    router.push(`/courses/${courseStore.navs[0].id}`)
   } else {
-    await courseStore.setCourse(route.params.id as string, editingCourse.value)
+    await courseStore.setById(route.params.id as string, editingCourse.value)
   }
   mode.value = 'view'
   removeUnloadConfirm()
@@ -118,13 +112,13 @@ const cancelEdit = () => {
   if (mode.value === 'add') {
     dialogVisible.value = false
   } else {
-    editingCourse.value = { ...currentCourse.value }
+    editingCourse.value = { ...courseStore.entityMap[route.params.id as string] }
   }
   mode.value = 'view'
   removeUnloadConfirm()
 }
 const deleteCourse = async () => {
-  await courseStore.deleteCourse(route.params.id as string)
+  await courseStore.deleteById(route.params.id as string)
   dialogVisible.value = false
 }
 const onClose = () => {
@@ -166,7 +160,7 @@ const onClose = () => {
         <el-form-item label="Students" prop="studentIds">
           <template v-if="mode === 'view'">
             <el-link v-for="studentId in editingCourse.studentIds" :key="studentId" type="primary"
-              :href="`/students/${studentId}`">{{ studentStore.students.find((student) => student.id === studentId)!.name
+              :href="`/students/${studentId}`">{{ studentStore.navs.find((student) => student.id === studentId)!.name
               }}</el-link>
           </template>
           <el-select v-else v-model="editingCourse.studentIds" multiple :clearable="true"

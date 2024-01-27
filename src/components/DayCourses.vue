@@ -11,7 +11,9 @@ interface CourseInfo extends Course {
   top: string
   height: string
   gradeText: string
-  students: StudentNav[]
+  students: (StudentNav & {
+    id: string
+  })[]
 }
 
 const router = useRouter()
@@ -22,11 +24,11 @@ const courseStore = useCourseStore()
 const studentStore = useStudentStore()
 
 const courseNavs = computed(() => {
-  return courseStore.courses.filter((course) => course.date === props.date)
+  return courseStore.navs.filter((course) => course.date === props.date)
 })
 watch(courseNavs, () => {
   courseNavs.value.forEach((courseNav) => {
-    courseStore.getCourse(courseNav.id)
+    courseStore.getById(courseNav.id)
   })
 }, { immediate: true })
 
@@ -34,7 +36,7 @@ const grades = ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'C1', 'C2', 'C3', 'G1', 'G2'
 const courses = computed(() => {
   const result: CourseInfo[] = []
   for (const courseNav of courseNavs.value) {
-    const course = courseStore.courseMap[courseNav.id]
+    const course = courseStore.entityMap[courseNav.id]
     if (!course) {
       return []
     }
@@ -45,7 +47,7 @@ const courses = computed(() => {
       top: (startTime.getTime() - eightAm.getTime()) / hourScale + 'px',
       height: (endTime.getTime() - startTime.getTime()) / hourScale + 'px',
       gradeText: grades[course.grade],
-      students: course.studentIds.map((studentId) => studentStore.students.find((student) => student.id === studentId)!),
+      students: course.studentIds.map((studentId) => studentStore.navs.find((student) => student.id === studentId)!),
       ...course
     })
   }
