@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import {
   collection,
   doc,
+  getDoc,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -93,9 +94,9 @@ export const elonStore = <
     (newDoc) => {
       store.briefEntities = Object.entries(newDoc.data()!).map(([id, brief]) => {
         store.briefEntityMap[id] = brief
-        // if (storeId === 'courses') {
+        // if (storeId === 'students') {
         //   updateDoc(doc(storeCollection, id), {
-        //     date: deleteField()
+        //     courseIds: deleteField()
         //   })
         // }
         return {
@@ -105,5 +106,23 @@ export const elonStore = <
       })
     }
   )
+  // getDoc(briefDoc).then((data) => {
+  //   if (storeId === 'courses') {
+  //     const courses = data.data()!
+  //     Object.entries(courses).map(([id, brief]) => {
+  //       getDoc(doc(storeCollection, id)).then((newDoc) => {
+  //         const course = newDoc.data()!
+  //         updateDoc(briefDoc, {
+  //           [id]: {
+  //             date: brief.date,
+  //             startTime: course.startTime,
+  //             endTime: course.endTime,
+  //             grade: course.grade
+  //           }
+  //         })
+  //       })
+  //     })
+  //   }
+  // })
   return useStore
 }

@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '@/stores/courses'
 import { useStudentStore } from '@/stores/students'
-import type { Course } from '@/stores/courses'
+import { useCourseStudentStore } from '@/stores/course-student'
+import type { CourseBrief } from '@/stores/courses'
 import type { StudentBrief } from '@/stores/students'
 
-interface CourseInfo extends Course {
+interface CourseInfo extends CourseBrief {
   id: string
   top: string
   height: string
@@ -22,42 +23,29 @@ const eightAm = new Date(props.date + ' 08:00')
 const hourScale = 60 * 60 * 1000 / 30
 const courseStore = useCourseStore()
 const studentStore = useStudentStore()
-
-const courseNavs = computed(() => {
-  return courseStore.briefEntities.filter((course) => course.date === props.date)
-})
-watch(courseNavs, () => {
-  courseNavs.value.forEach((courseNav) => {
-    courseStore.getById(courseNav.id)
-  })
-}, { immediate: true })
+const courseStudentStore = useCourseStudentStore()
 
 const grades = ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'C1', 'C2', 'C3', 'G1', 'G2', 'G3']
-const courses = computed(() => {
-  const result: CourseInfo[] = []
-  for (const courseNav of courseNavs.value) {
-    const course = courseStore.entityMap[courseNav.id]
-    if (!course) {
-      return []
-    }
-    const startTime = new Date(`${course.date} ${course.startTime}`)
-    const endTime = new Date(`${course.date} ${course.endTime}`)
-    result.push({
-      id: courseNav.id,
+const courses = computed(() => courseStore.briefEntities
+  .filter((course) => course.date === props.date)
+  .map((briefEntity) => {
+    const startTime = new Date(`${briefEntity.date} ${briefEntity.startTime}`)
+    const endTime = new Date(`${briefEntity.date} ${briefEntity.endTime}`)
+    return {
       top: (startTime.getTime() - eightAm.getTime()) / hourScale + 'px',
       height: (endTime.getTime() - startTime.getTime()) / hourScale + 'px',
-      gradeText: grades[course.grade],
-      students: course.studentIds.map((id) => {
-        return {
-          id,
-          ...studentStore.briefEntityMap[id]
-        }
-      }),
-      ...course
-    })
-  }
-  return result
-})
+      gradeText: grades[briefEntity.grade],
+      students: courseStudentStore.briefEntities
+        .filter((courseStudent) => courseStudent.courseId === briefEntity.id)
+        .map((courseStudent) => {
+          return {
+            id: courseStudent.studentId,
+            ...studentStore.briefEntityMap[courseStudent.studentId]
+          }
+        }),
+      ...briefEntity
+    } as CourseInfo
+  }))
 
 const courseDetail = (courseId: string) => {
   router.push(`/courses/${courseId}`)

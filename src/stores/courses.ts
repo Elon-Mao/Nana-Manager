@@ -1,19 +1,17 @@
 import { elonStore } from './elonStore'
 
-export interface Course {
+export interface CourseBrief {
   date: string
   startTime: string
   endTime: string
   grade: number
-  studentIds: string[]
+}
+
+export interface Course extends CourseBrief {
   summary: string
   remark: string
 }
 
-interface CourseBrief {
-  date: string
-}
-
-const useCourseStore = elonStore<CourseBrief, Course>('courses', ['date'])
+const useCourseStore = elonStore<CourseBrief, Course>('courses', ['date', 'startTime', 'endTime', 'grade'])
 
 export { useCourseStore }

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, nextTick, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useCourseStore } from '@/stores/courses'
+import { useCourseStore, type Course } from '@/stores/courses'
 import { useStudentStore } from '@/stores/students'
+import { useCourseStudentStore } from '@/stores/course-student'
 import { getFormatDate } from '@/common/dateTools'
 import { addUnloadConfirm, removeUnloadConfirm } from '@/common/beforeunload'
 import CourseSchedule from '@/components/CourseSchedule.vue'
@@ -14,10 +15,22 @@ const route = useRoute()
 const router = useRouter()
 const courseStore = useCourseStore()
 const studentStore = useStudentStore()
+const courseStudentStore = useCourseStudentStore()
 const date = ref(getFormatDate(new Date()))
 const carousel = ref<CarouselInstance>()
 const courseForm = ref<FormInstance>()
-const editingCourse = ref()
+const initCourse = {
+  date: date.value,
+  startTime: '',
+  endTime: '',
+  grade: 0,
+  studentIds: [],
+  summary: '',
+  remark: '',
+}
+const editingCourse = ref<Course & {
+  studentIds: string[]
+}>(initCourse)
 const mondayDateList = computed(() => {
   const difDay = new Date(date.value).getDay() - 1
   return [...Array(5).keys()].map((i) => {
@@ -27,6 +40,13 @@ const mondayDateList = computed(() => {
   })
 })
 
+const getStudentIds = (courseId: string, newCourse: Course) => {
+  return {
+    studentIds: courseStudentStore.briefEntities.filter((courseStudent) => courseStudent.courseId === courseId)
+      .map((courseStudent) => courseStudent.studentId),
+    ...newCourse
+  }
+}
 watch(
   () => route.params.id,
   async (newId) => {
@@ -36,10 +56,11 @@ watch(
 watch(
   () => courseStore.entityMap[route.params.id as string], (newCourse) => {
     if (newCourse) {
-      editingCourse.value = { ...newCourse }
+      editingCourse.value = getStudentIds(route.params.id as string, newCourse)
       dialogVisible.value = true
     }
-  }, { immediate: true })
+  }, { immediate: true }
+)
 
 onMounted(() => {
   watch(mondayDateList, () => {
@@ -73,14 +94,7 @@ const addCourse = () => {
   addUnloadConfirm()
   mode.value = 'add'
   courseForm.value?.resetFields()
-  editingCourse.value = {
-    date: date.value,
-    startTime: '',
-    endTime: '',
-    studentIds: [],
-    summary: '',
-    remark: '',
-  }
+  editingCourse.value = initCourse
   dialogVisible.value = true
 }
 const editCourse = () => {
@@ -90,8 +104,9 @@ const editCourse = () => {
 
 const saveCourse = async () => {
   await courseForm.value!.validate()
+  const courseId = route.params.id as string
   const sameDateCourses = courseStore.briefEntities
-    .filter((course) => course.date === editingCourse.value.date && course.id !== route.params.id)
+    .filter((course) => course.date === editingCourse.value.date && course.id !== courseId)
     .map((course) => courseStore.entityMap[course.id])
   for (const course of sameDateCourses) {
     if (editingCourse.value.startTime < course.endTime && editingCourse.value.endTime > course.startTime) {
@@ -103,8 +118,17 @@ const saveCourse = async () => {
     await courseStore.addEntity(editingCourse.value)
     router.push(`/courses/${courseStore.briefEntities[0].id}`)
   } else {
-    await courseStore.setById(route.params.id as string, editingCourse.value)
+    await Promise.all([
+      courseStore.setById(courseId, editingCourse.value),
+      ...courseStudentStore.briefEntities.filter((courseStudent) => courseStudent.courseId === courseId)
+        .map((courseStudent) => courseStudentStore.deleteById(courseStudent.id))
+    ])
   }
+  editingCourse.value.studentIds.map((studentId) => {
+    courseStudentStore.addEntity({
+      courseId, studentId
+    })
+  })
   mode.value = 'view'
   removeUnloadConfirm()
 }
@@ -113,7 +137,8 @@ const cancelEdit = () => {
   if (mode.value === 'add') {
     dialogVisible.value = false
   } else {
-    editingCourse.value = { ...courseStore.entityMap[route.params.id as string] }
+    const courseId = route.params.id as string
+    editingCourse.value = getStudentIds(courseId, courseStore.entityMap[courseId])
   }
   mode.value = 'view'
   removeUnloadConfirm()
