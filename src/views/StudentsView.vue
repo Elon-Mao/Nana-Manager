@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useStudentStore } from '@/stores/students'
 import { addUnloadConfirm, removeUnloadConfirm } from '@/common/beforeunload'
 import GradeSelect from '@/components/GradeSelect.vue'
+import { grades } from '@/common/grades'
 import type { FormInstance, FormRules } from 'element-plus'
 
 const route = useRoute()
@@ -74,8 +75,6 @@ const cancelEdit = () => {
   mode.value = 'view'
   removeUnloadConfirm()
 }
-
-const grades = ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'C1', 'C2', 'C3', 'G1', 'G2', 'G3']
 </script>
 
 <template>
@@ -89,13 +88,26 @@ const grades = ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'C1', 'C2', 'C3', 'G1', 'G2'
       </el-menu>
     </div>
     <div class="main">
-      <el-table :data="studentStore.briefEntities" style="width: 100%">
-        <el-table-column label="Grade">
+      <el-table :data="studentStore.briefEntities" style="width: 100%"
+        :default-sort="{ prop: 'grade', order: 'descending' }">
+        <el-table-column prop="grade" label="Grade" sortable :filters="grades.map((grade, index) => {
+          return {
+            text: grade,
+            value: index
+          }
+        })" :filter-method="(value: number, student: any) => student.grade === value">
           <template #default="scope">
             <span>{{ grades[scope.row.grade] }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="name" label="Name" width="180" />
+        <el-table-column prop="name" label="Name" />
+        <el-table-column label="Sex">
+          <template #default="scope">
+            <span>{{ scope.row.sex ? 'male' : 'female' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="school" label="School" />
+        <el-table-column prop="character" label="Character" />
       </el-table>
       <div v-if="editingStudent" class="student-info">
         <div class="button-group">
@@ -138,6 +150,7 @@ const grades = ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'C1', 'C2', 'C3', 'G1', 'G2'
 
 .main {
   flex-grow: 1;
+  padding: 50px;
 }
 
 .student-info {

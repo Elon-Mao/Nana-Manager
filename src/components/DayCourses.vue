@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useCourseStore } from '@/stores/courses'
-import { useStudentStore } from '@/stores/students'
+import { useCourseStore, type CourseBrief } from '@/stores/courses'
+import { useStudentStore, type StudentBrief } from '@/stores/students'
 import { useCourseStudentStore } from '@/stores/course-student'
-import type { CourseBrief } from '@/stores/courses'
-import type { StudentBrief } from '@/stores/students'
+import { grades } from '@/common/grades'
 
 interface CourseInfo extends CourseBrief {
   id: string
@@ -25,7 +24,6 @@ const courseStore = useCourseStore()
 const studentStore = useStudentStore()
 const courseStudentStore = useCourseStudentStore()
 
-const grades = ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'C1', 'C2', 'C3', 'G1', 'G2', 'G3']
 const courses = computed(() => courseStore.briefEntities
   .filter((course) => course.date === props.date)
   .map((briefEntity) => {
