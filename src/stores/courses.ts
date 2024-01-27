@@ -10,10 +10,10 @@ export interface Course {
   remark: string
 }
 
-interface CourseNav {
+interface CourseBrief {
   date: string
 }
 
-const useCourseStore = elonStore<CourseNav, Course>('courses')
+const useCourseStore = elonStore<CourseBrief, Course>('courses', ['date'])
 
 export { useCourseStore }

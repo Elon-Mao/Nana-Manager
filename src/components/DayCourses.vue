@@ -4,14 +4,14 @@ import { useRouter } from 'vue-router'
 import { useCourseStore } from '@/stores/courses'
 import { useStudentStore } from '@/stores/students'
 import type { Course } from '@/stores/courses'
-import type { StudentNav } from '@/stores/students'
+import type { StudentBrief } from '@/stores/students'
 
 interface CourseInfo extends Course {
   id: string
   top: string
   height: string
   gradeText: string
-  students: (StudentNav & {
+  students: (StudentBrief & {
     id: string
   })[]
 }
@@ -24,7 +24,7 @@ const courseStore = useCourseStore()
 const studentStore = useStudentStore()
 
 const courseNavs = computed(() => {
-  return courseStore.navs.filter((course) => course.date === props.date)
+  return courseStore.briefEntities.filter((course) => course.date === props.date)
 })
 watch(courseNavs, () => {
   courseNavs.value.forEach((courseNav) => {
@@ -47,7 +47,12 @@ const courses = computed(() => {
       top: (startTime.getTime() - eightAm.getTime()) / hourScale + 'px',
       height: (endTime.getTime() - startTime.getTime()) / hourScale + 'px',
       gradeText: grades[course.grade],
-      students: course.studentIds.map((studentId) => studentStore.navs.find((student) => student.id === studentId)!),
+      students: course.studentIds.map((id) => {
+        return {
+          id,
+          ...studentStore.briefEntityMap[id]
+        }
+      }),
       ...course
     })
   }

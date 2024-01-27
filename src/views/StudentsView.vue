@@ -26,10 +26,10 @@ watch(
     }
   }, { immediate: true })
 watch(
-  () => studentStore.navs,
+  () => studentStore.briefEntities,
   () => {
-    if (!route.params.id && studentStore.navs.length > 0) {
-      router.push(`/students/${studentStore.navs[0].id}`)
+    if (!route.params.id && studentStore.briefEntities.length > 0) {
+      router.push(`/students/${studentStore.briefEntities[0].id}`)
     }
   }, { immediate: true }
 )
@@ -61,7 +61,7 @@ const saveStudent = async () => {
   await studentForm.value!.validate()
   if (mode.value === 'add') {
     await studentStore.addEntity(editingStudent.value)
-    router.push(`/students/${studentStore.navs[0].id}`)
+    router.push(`/students/${studentStore.briefEntities[0].id}`)
   } else {
     await studentStore.setById(route.params.id as string, editingStudent.value)
   }
@@ -81,7 +81,7 @@ const cancelEdit = () => {
     <div class="left">
       <el-button type="primary" @click="addStudent">Add Student</el-button>
       <el-menu :default-active="route.path" router>
-        <el-menu-item v-for="student in studentStore.navs" :key="student.id" :index="`/students/${student.id}`">
+        <el-menu-item v-for="student in studentStore.briefEntities" :key="student.id" :index="`/students/${student.id}`">
           {{ student.name }}
         </el-menu-item>
       </el-menu>

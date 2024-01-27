@@ -14,21 +14,23 @@ import { db } from '@/config/firebase'
 import customPromise from '@/common/customPromise'
 
 export const elonStore = <
-  NavWithoutId extends WithFieldValue<DocumentData>,
-  Entity extends NavWithoutId
+  BriefWithoutId extends WithFieldValue<DocumentData>,
+  Entity extends BriefWithoutId
 >(
-  storeId: string
+  storeId: string,
+  briefKeys: (keyof BriefWithoutId)[]
 ) => {
-  type EntityNav = NavWithoutId & {
+  type BriefEntity = BriefWithoutId & {
     id: string
   }
+  type EntityWithoutBrief = Omit<Entity, keyof BriefWithoutId>
 
   const useStore = defineStore(storeId, {
     state: () => {
       return {
-        navs: [] as EntityNav[],
         entityMap: {} as Record<string, Entity>,
-        editingEntity: null as Entity | null
+        briefEntities: [] as BriefEntity[],
+        briefEntityMap: {} as Record<string, BriefWithoutId>,
       }
     },
     actions: {
@@ -37,14 +39,30 @@ export const elonStore = <
           return
         }
         onSnapshot(doc(storeCollection, id), (newDoc) => {
-          this.entityMap[id] = newDoc.data() as Entity
+          this.entityMap[id] = {
+            ...newDoc.data(),
+            ...this.briefEntityMap[id]
+          } as Entity
         })
       },
       async setById(id: string, entity: Entity) {
+        const entityWithoutBrief = {} as EntityWithoutBrief
+        const briefWithoutId = {} as BriefWithoutId
+        Object.keys(entity).forEach((key) => {
+          if (briefKeys.includes(key)) {
+            briefWithoutId[key] = entity[key]
+          } else {
+            entityWithoutBrief[key as keyof EntityWithoutBrief] = entity[key]
+          }
+        })
+
         await customPromise(
-          Promise.all([setDoc(doc(storeCollection, id), entity), updateDoc(navDoc, {
-            [id]: entity as NavWithoutId
-          })])
+          Promise.all([
+            setDoc(doc(storeCollection, id), entityWithoutBrief),
+            updateDoc(briefDoc, {
+              [id]: briefWithoutId
+            })
+          ])
         )
       },
       async addEntity(entity: Entity) {
@@ -56,26 +74,35 @@ export const elonStore = <
         await customPromise(
           Promise.all([
             deleteDoc(doc(storeCollection, id)),
-            updateDoc(navDoc, {
+            updateDoc(briefDoc, {
               [id]: deleteField()
             })
           ])
         )
         delete this.entityMap[id]
-      },
-      async saveEditing() {
-
+        delete this.briefEntityMap[id]
       }
     }
   })
 
   const store = useStore()
   const storeCollection = collection(db, storeId)
-  const navDoc = doc(storeCollection, 'nav')
+  const briefDoc = doc(storeCollection, 'briefEntities')
   onSnapshot(
-    navDoc,
+    briefDoc,
     (newDoc) => {
-      store.navs = Object.entries(newDoc.data()!).map(([id, nav]) => Object.assign(nav, { id }))
+      store.briefEntities = Object.entries(newDoc.data()!).map(([id, brief]) => {
+        store.briefEntityMap[id] = brief
+        // if (storeId === 'courses') {
+        //   updateDoc(doc(storeCollection, id), {
+        //     date: deleteField()
+        //   })
+        // }
+        return {
+          id,
+          ...brief
+        }
+      })
     }
   )
   return useStore

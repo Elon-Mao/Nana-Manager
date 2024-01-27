@@ -35,11 +35,11 @@ watch(
 )
 watch(
   () => courseStore.entityMap[route.params.id as string], (newCourse) => {
-  if (newCourse) {
-    editingCourse.value = { ...newCourse }
-    dialogVisible.value = true
-  }
-}, { immediate: true })
+    if (newCourse) {
+      editingCourse.value = { ...newCourse }
+      dialogVisible.value = true
+    }
+  }, { immediate: true })
 
 onMounted(() => {
   watch(mondayDateList, () => {
@@ -65,7 +65,8 @@ const rules = reactive<FormRules<typeof editingCourse>>({
   studentIds: [{ required: true, message: 'Please select students' }]
 })
 const gradeStudents = computed(() => {
-  return studentStore.navs.filter((student) => editingCourse.value && student.grade === editingCourse.value.grade)
+  return studentStore.briefEntities
+    .filter((student) => editingCourse.value && student.grade === editingCourse.value.grade)
 })
 
 const addCourse = () => {
@@ -89,7 +90,7 @@ const editCourse = () => {
 
 const saveCourse = async () => {
   await courseForm.value!.validate()
-  const sameDateCourses = courseStore.navs
+  const sameDateCourses = courseStore.briefEntities
     .filter((course) => course.date === editingCourse.value.date && course.id !== route.params.id)
     .map((course) => courseStore.entityMap[course.id])
   for (const course of sameDateCourses) {
@@ -100,7 +101,7 @@ const saveCourse = async () => {
   }
   if (mode.value === 'add') {
     await courseStore.addEntity(editingCourse.value)
-    router.push(`/courses/${courseStore.navs[0].id}`)
+    router.push(`/courses/${courseStore.briefEntities[0].id}`)
   } else {
     await courseStore.setById(route.params.id as string, editingCourse.value)
   }
@@ -160,8 +161,7 @@ const onClose = () => {
         <el-form-item label="Students" prop="studentIds">
           <template v-if="mode === 'view'">
             <el-link v-for="studentId in editingCourse.studentIds" :key="studentId" type="primary"
-              :href="`/students/${studentId}`">{{ studentStore.navs.find((student) => student.id === studentId)!.name
-              }}</el-link>
+              :href="`/students/${studentId}`">{{ studentStore.briefEntityMap[studentId].name }}</el-link>
           </template>
           <el-select v-else v-model="editingCourse.studentIds" multiple :clearable="true"
             no-data-text="No students in current grade" :multiple-limit="3">

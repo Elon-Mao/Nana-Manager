@@ -6,18 +6,16 @@ interface ScoreRecord {
   score: number
 }
 
-export interface Student {
+export interface StudentBrief {
   name: string
   grade: number
+}
+
+export interface Student extends StudentBrief {
   courseIds: string[]
   scoreRecords: ScoreRecord[]
 }
 
-export interface StudentNav {
-  name: string
-  grade: number
-}
-
-const useStudentStore = elonStore<StudentNav, Student>('students')
+const useStudentStore = elonStore<StudentBrief, Student>('students', ['name', 'grade'])
 
 export { useStudentStore }
