@@ -7,8 +7,8 @@ const systemStore = useSystemStore()
 </script>
 
 <template>
-  <AppHeader></AppHeader>
-  <RouterView v-loading.fullscreen.lock="systemStore.loading"/>
+  <AppHeader v-loading.fullscreen.lock="systemStore.loading"></AppHeader>
+  <RouterView />
 </template>
 
 <style scoped>

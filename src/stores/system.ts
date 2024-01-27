@@ -10,6 +10,10 @@ export const useSystemStore = defineStore('system', {
   },
   actions: {
     setLoading(loading: boolean) {
+      if (loading) {
+        this.loading = loading
+        return
+      }
       clearTimeout(loadingTimeoutId);
       loadingTimeoutId = setTimeout(() => {
         this.loading = loading

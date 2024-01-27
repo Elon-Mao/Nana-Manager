@@ -58,7 +58,7 @@ const editStudent = () => {
   mode.value = 'edit'
 }
 const saveStudent = async () => {
-  await studentForm.value!.validate()
+  await studentForm.value?.validate()
   if (mode.value === 'add') {
     await studentStore.addEntity(editingStudent.value)
     router.push(`/students/${studentStore.briefEntities[0].id}`)
@@ -69,11 +69,13 @@ const saveStudent = async () => {
   removeUnloadConfirm()
 }
 const cancelEdit = () => {
-  studentForm.value!.resetFields()
+  studentForm.value?.resetFields()
   editingStudent.value = { ...studentStore.entityMap[route.params.id as string] }
   mode.value = 'view'
   removeUnloadConfirm()
 }
+
+const grades = ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'C1', 'C2', 'C3', 'G1', 'G2', 'G3']
 </script>
 
 <template>
@@ -87,6 +89,14 @@ const cancelEdit = () => {
       </el-menu>
     </div>
     <div class="main">
+      <el-table :data="studentStore.briefEntities" style="width: 100%">
+        <el-table-column label="Grade">
+          <template #default="scope">
+            <span>{{ grades[scope.row.grade] }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="name" label="Name" width="180" />
+      </el-table>
       <div v-if="editingStudent" class="student-info">
         <div class="button-group">
           <el-button v-if="mode === 'view'" type="primary" @click="editStudent">Edit</el-button>
@@ -104,18 +114,6 @@ const cancelEdit = () => {
             <grade-select v-model="editingStudent.grade"></grade-select>
           </el-form-item>
         </el-form>
-        <!-- <el-collapse>
-          <el-collapse-item v-for="" title="Consistency" name="1">
-            <div>
-              Consistent with real life: in line with the process and logic of real
-              life, and comply with languages and habits that the users are used to;
-            </div>
-            <div>
-              Consistent within interface: all elements should be consistent, such
-              as: design style, icons and texts, position of elements, etc.
-            </div>
-          </el-collapse-item>
-        </el-collapse> -->
       </div>
       <el-empty v-else />
     </div>

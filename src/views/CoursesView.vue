@@ -30,7 +30,7 @@ const initCourse = {
 }
 const editingCourse = ref<Course & {
   studentIds: string[]
-}>(initCourse)
+}>({...initCourse})
 const mondayDateList = computed(() => {
   const difDay = new Date(date.value).getDay() - 1
   return [...Array(5).keys()].map((i) => {
@@ -56,6 +56,8 @@ watch(
 watch(
   () => courseStore.entityMap[route.params.id as string], (newCourse) => {
     if (newCourse) {
+      mode.value = 'view'
+      courseForm.value?.resetFields()
       editingCourse.value = getStudentIds(route.params.id as string, newCourse)
       dialogVisible.value = true
     }
@@ -94,7 +96,7 @@ const addCourse = () => {
   addUnloadConfirm()
   mode.value = 'add'
   courseForm.value?.resetFields()
-  editingCourse.value = initCourse
+  editingCourse.value = {...initCourse}
   dialogVisible.value = true
 }
 const editCourse = () => {
@@ -107,7 +109,6 @@ const saveCourse = async () => {
   const courseId = route.params.id as string
   const sameDateCourses = courseStore.briefEntities
     .filter((course) => course.date === editingCourse.value.date && course.id !== courseId)
-    .map((course) => courseStore.entityMap[course.id])
   for (const course of sameDateCourses) {
     if (editingCourse.value.startTime < course.endTime && editingCourse.value.endTime > course.startTime) {
       ElMessage.error('Time conflict with other course')
@@ -116,7 +117,6 @@ const saveCourse = async () => {
   }
   if (mode.value === 'add') {
     await courseStore.addEntity(editingCourse.value)
-    router.push(`/courses/${courseStore.briefEntities[0].id}`)
   } else {
     await Promise.all([
       courseStore.setById(courseId, editingCourse.value),
@@ -124,23 +124,14 @@ const saveCourse = async () => {
         .map((courseStudent) => courseStudentStore.deleteById(courseStudent.id))
     ])
   }
-  editingCourse.value.studentIds.map((studentId) => {
-    courseStudentStore.addEntity({
+  await Promise.all(editingCourse.value.studentIds.map((studentId) => courseStudentStore.addEntity({
       courseId, studentId
-    })
-  })
-  mode.value = 'view'
+  })))
+  dialogVisible.value = false
   removeUnloadConfirm()
 }
 const cancelEdit = () => {
-  courseForm.value!.resetFields()
-  if (mode.value === 'add') {
-    dialogVisible.value = false
-  } else {
-    const courseId = route.params.id as string
-    editingCourse.value = getStudentIds(courseId, courseStore.entityMap[courseId])
-  }
-  mode.value = 'view'
+  dialogVisible.value = false
   removeUnloadConfirm()
 }
 const deleteCourse = async () => {

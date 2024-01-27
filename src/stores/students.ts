@@ -9,10 +9,12 @@ interface ScoreRecord {
 export interface StudentBrief {
   name: string
   grade: number
+  sex: boolean
+  school: string
+  character: string
 }
 
 export interface Student extends StudentBrief {
-  courseIds: string[]
   scoreRecords: ScoreRecord[]
 }
 

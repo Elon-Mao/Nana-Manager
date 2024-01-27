@@ -92,7 +92,10 @@ export const elonStore = <
   onSnapshot(
     briefDoc,
     (newDoc) => {
-      store.briefEntities = Object.entries(newDoc.data()!).map(([id, brief]) => {
+      if (!newDoc.data()) {
+        return
+      }
+      store.briefEntities = Object.entries(newDoc.data()).map(([id, brief]) => {
         store.briefEntityMap[id] = brief
         // if (storeId === 'students') {
         //   updateDoc(doc(storeCollection, id), {
