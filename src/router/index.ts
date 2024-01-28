@@ -18,6 +18,10 @@ const router = createRouter({
     path: '/courses/:id(.*)',
     name: 'Courses',
     component: () => import('@/views/CoursesView.vue')
+  }, {
+    path: '/datebaseFormat',
+    name: 'DatebaseFormat',
+    component: () => import('@/views/DatebaseFormat.vue')
   }]
 })
 

@@ -8,10 +8,15 @@ export interface CourseBrief {
 }
 
 export interface Course extends CourseBrief {
-  summary: string
-  remark: string
+  content: string
+  homework: string
 }
 
-const useCourseStore = elonStore<CourseBrief, Course>('courses', ['date', 'startTime', 'endTime', 'grade'])
+export interface CourseWithId extends Course {
+  id: string
+}
+
+const useCourseStore = elonStore<CourseBrief, Course>('courses',
+  ['date', 'startTime', 'endTime', 'grade'], ['content', 'homework'])
 
 export { useCourseStore }

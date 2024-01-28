@@ -25,14 +25,14 @@ const initCourse = {
   endTime: '',
   grade: 0,
   studentIds: [],
-  summary: '',
-  remark: '',
+  content: '',
+  homework: '',
 }
 const editingCourse = ref<Course & {
   studentIds: string[]
-}>({...initCourse})
+}>({ ...initCourse })
 const mondayDateList = computed(() => {
-  const difDay = new Date(date.value).getDay() - 1
+  const difDay = (new Date(date.value).getDay() + 6) % 7
   return [...Array(5).keys()].map((i) => {
     const dateItem = new Date(date.value)
     dateItem.setDate(dateItem.getDate() - difDay - (2 - i) * 7)
@@ -96,7 +96,7 @@ const addCourse = () => {
   addUnloadConfirm()
   mode.value = 'add'
   courseForm.value?.resetFields()
-  editingCourse.value = {...initCourse}
+  editingCourse.value = { ...initCourse }
   dialogVisible.value = true
 }
 const editCourse = () => {
@@ -125,7 +125,10 @@ const saveCourse = async () => {
     ])
   }
   await Promise.all(editingCourse.value.studentIds.map((studentId) => courseStudentStore.addEntity({
-      courseId, studentId
+    courseId, studentId,
+    lastCompletionRate: '',
+    lastCorrectRate: '',
+    personalReview: ''
   })))
   dialogVisible.value = false
   removeUnloadConfirm()
@@ -191,11 +194,11 @@ const BASE_URL = import.meta.env.BASE_URL
           </el-select>
         </el-form-item>
       </div>
-      <el-form-item class="form-textarea" label="Summary" prop="summary">
-        <el-input v-model="editingCourse.summary" :rows="2" type="textarea" />
+      <el-form-item class="form-textarea" label="Content" prop="content">
+        <el-input v-model="editingCourse.content" :rows="2" type="textarea" />
       </el-form-item>
-      <el-form-item class="form-textarea" label="Remark" prop="remark">
-        <el-input v-model="editingCourse.remark" :rows="2" type="textarea" />
+      <el-form-item class="form-textarea" label="Homework" prop="homework">
+        <el-input v-model="editingCourse.homework" :rows="2" type="textarea" />
       </el-form-item>
     </el-form>
     <template #footer>

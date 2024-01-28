@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import {
   collection,
   doc,
-  getDoc,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -19,7 +18,8 @@ export const elonStore = <
   Entity extends BriefWithoutId
 >(
   storeId: string,
-  briefKeys: (keyof BriefWithoutId)[]
+  briefKeys: (keyof BriefWithoutId)[],
+  entityKeys: (keyof Omit<Entity, keyof BriefWithoutId>)[]
 ) => {
   type BriefEntity = BriefWithoutId & {
     id: string
@@ -53,7 +53,10 @@ export const elonStore = <
           if (briefKeys.includes(key)) {
             briefWithoutId[key] = entity[key]
           } else {
-            entityWithoutBrief[key as keyof EntityWithoutBrief] = entity[key]
+            const key1 = key as keyof EntityWithoutBrief
+            if (entityKeys.includes(key1)) {
+              entityWithoutBrief[key1] = entity[key1]
+            }
           }
         })
 
@@ -82,6 +85,24 @@ export const elonStore = <
         )
         delete this.entityMap[id]
         delete this.briefEntityMap[id]
+      },
+      async getAll() {
+        this.briefEntities.forEach((briefEntity) => {
+          this.getById(briefEntity.id)
+        })
+        return new Promise((resolve) => {
+          const intervalId = setInterval(() => {
+            if (Object.keys(this.entityMap).length === this.briefEntities.length) {
+              clearInterval(intervalId)
+              resolve(this.briefEntities.map((briefEntity) => {
+                return {
+                  id: briefEntity.id,
+                  ...this.entityMap[briefEntity.id]
+                }
+              }))
+            }
+          }, 500)
+        })
       }
     }
   })
@@ -92,16 +113,12 @@ export const elonStore = <
   onSnapshot(
     briefDoc,
     (newDoc) => {
-      if (!newDoc.data()) {
+      const briefData = newDoc.data()
+      if (!briefData) {
         return
       }
-      store.briefEntities = Object.entries(newDoc.data()).map(([id, brief]) => {
+      store.briefEntities = Object.entries(briefData).map(([id, brief]) => {
         store.briefEntityMap[id] = brief
-        // if (storeId === 'students') {
-        //   updateDoc(doc(storeCollection, id), {
-        //     courseIds: deleteField()
-        //   })
-        // }
         return {
           id,
           ...brief
@@ -109,23 +126,5 @@ export const elonStore = <
       })
     }
   )
-  // getDoc(briefDoc).then((data) => {
-  //   if (storeId === 'courses') {
-  //     const courses = data.data()!
-  //     Object.entries(courses).map(([id, brief]) => {
-  //       getDoc(doc(storeCollection, id)).then((newDoc) => {
-  //         const course = newDoc.data()!
-  //         updateDoc(briefDoc, {
-  //           [id]: {
-  //             date: brief.date,
-  //             startTime: course.startTime,
-  //             endTime: course.endTime,
-  //             grade: course.grade
-  //           }
-  //         })
-  //       })
-  //     })
-  //   }
-  // })
   return useStore
 }
