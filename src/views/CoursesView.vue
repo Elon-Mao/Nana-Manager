@@ -82,6 +82,7 @@ watch(
     courseStore.getById(newId as string, (entity) => {
       mode.value = 'view'
       courseForm.value?.resetFields()
+      editingStudents.value = {}
       editingCourse.value = getStudentIds(newId as string, entity)
       dialogVisible.value = true
     })
@@ -120,6 +121,7 @@ const addCourse = () => {
   addUnloadConfirm()
   mode.value = 'add'
   courseForm.value?.resetFields()
+  editingStudents.value = {}
   editingCourse.value = { ...initCourse }
   dialogVisible.value = true
 }
@@ -225,10 +227,10 @@ ${editingCourse.value.homework}`)
         </el-form-item>
       </div>
       <el-form-item class="form-textarea" label="Content" prop="content">
-        <el-input v-model="editingCourse.content" :rows="2" type="textarea" />
+        <el-input v-model="editingCourse.content" :rows="2" type="textarea" autosize />
       </el-form-item>
       <el-form-item class="form-textarea" label="Homework" prop="homework">
-        <el-input v-model="editingCourse.homework" :rows="2" type="textarea" />
+        <el-input v-model="editingCourse.homework" :rows="2" type="textarea" autosize />
       </el-form-item>
       <div class="form-select">
         <el-form-item label="Students" prop="studentIds">
@@ -246,13 +248,13 @@ ${editingCourse.value.homework}`)
         </el-form>
         <template v-if="editingStudents[studentId]">
           <el-form-item class="form-textarea" label="Last Completion" prop="lastCompletion">
-            <el-input v-model="editingStudents[studentId].lastCompletion" :rows="2" type="textarea" />
+            <el-input v-model="editingStudents[studentId].lastCompletion" :rows="2" type="textarea" autosize />
           </el-form-item>
           <el-form-item class="form-textarea" label="Last Correct" prop="lastCorrect">
-            <el-input v-model="editingStudents[studentId].lastCorrect" :rows="2" type="textarea" />
+            <el-input v-model="editingStudents[studentId].lastCorrect" :rows="2" type="textarea" autosize />
           </el-form-item>
           <el-form-item class="form-textarea" label="Personal Review" prop="personalReview">
-            <el-input v-model="editingStudents[studentId].personalReview" :rows="2" type="textarea" />
+            <el-input v-model="editingStudents[studentId].personalReview" :rows="2" type="textarea" autosize />
           </el-form-item>
         </template>
       </template>
