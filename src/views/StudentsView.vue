@@ -1,16 +1,30 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useStudentStore } from '@/stores/students'
+import { useStudentStore, type StudentBrief, type Student } from '@/stores/students'
 import { addUnloadConfirm, removeUnloadConfirm } from '@/common/beforeunload'
 import GradeSelect from '@/components/GradeSelect.vue'
 import { grades } from '@/common/grades'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { useCourseStudentStore } from '@/stores/course-student'
 
+type StudentBriefWithId = StudentBrief & {
+  id: string
+}
+
+const initStudent = {
+  name: '',
+  grade: 0,
+  sex: true,
+  school: '',
+  character: '',
+  scoreRecords: []
+}
 const route = useRoute()
 const router = useRouter()
 const studentStore = useStudentStore()
-const editingStudent = ref()
+const courseStudentStore = useCourseStudentStore()
+const editingStudent = ref<Student>({ ...initStudent })
 const mode = ref('view')
 
 watch(
@@ -20,17 +34,12 @@ watch(
   }, { immediate: true }
 )
 watch(
-  () => studentStore.entityMap[route.params.id as string],
-  (newStudent) => {
+  () => studentStore.entityMap[route.params.id as string], (newStudent) => {
     if (newStudent) {
+      mode.value = 'view'
+      studentForm.value?.resetFields()
       editingStudent.value = { ...newStudent }
-    }
-  }, { immediate: true })
-watch(
-  () => studentStore.briefEntities,
-  () => {
-    if (!route.params.id && studentStore.briefEntities.length > 0) {
-      router.push(`/students/${studentStore.briefEntities[0].id}`)
+      dialogVisible.value = true
     }
   }, { immediate: true }
 )
@@ -42,17 +51,17 @@ const rules = reactive<FormRules<typeof editingStudent>>({
     { min: 2, max: 16, message: 'Length should be 2 to 16', trigger: 'blur' },
   ],
   grade: [{ required: true, message: 'Please select grade' }],
+  sex: [{ required: true, message: 'Please select sex' }],
+  school: [{ max: 16, message: 'Length should be 0 to 16', trigger: 'blur' }],
+  character: [{ max: 16, message: 'Length should be 0 to 16', trigger: 'blur' }]
 })
 
 const addStudent = () => {
   addUnloadConfirm()
   mode.value = 'add'
   studentForm.value?.resetFields()
-  editingStudent.value = {
-    name: '',
-    courseIds: [],
-    scoreRecords: []
-  }
+  editingStudent.value = {...initStudent}
+  dialogVisible.value = true
 }
 const editStudent = () => {
   addUnloadConfirm()
@@ -66,107 +75,115 @@ const saveStudent = async () => {
   } else {
     await studentStore.setById(route.params.id as string, editingStudent.value)
   }
-  mode.value = 'view'
+  dialogVisible.value = false
   removeUnloadConfirm()
 }
 const cancelEdit = () => {
-  studentForm.value?.resetFields()
-  editingStudent.value = { ...studentStore.entityMap[route.params.id as string] }
-  mode.value = 'view'
+  dialogVisible.value = false
   removeUnloadConfirm()
+}
+const dialogVisible = ref(false)
+const studentDetails = (student: StudentBriefWithId) => {
+  router.push(`/students/${student.id}`)
+}
+const deleteStudent = async () => {
+  const studentId = route.params.id as string
+  if (courseStudentStore.briefEntities.find((courseStudent) => courseStudent.studentId === studentId)) {
+    ElMessage.error('Please delete related courses first.')
+    return
+  }
+  await studentStore.deleteById(studentId)
+  dialogVisible.value = false
+}
+const onClose = () => {
+  router.push('/students/')
 }
 </script>
 
 <template>
   <div class="container">
-    <div class="left">
-      <el-button type="primary" @click="addStudent">Add Student</el-button>
-      <el-menu :default-active="route.path" router>
-        <el-menu-item v-for="student in studentStore.briefEntities" :key="student.id" :index="`/students/${student.id}`">
-          {{ student.name }}
-        </el-menu-item>
-      </el-menu>
-    </div>
-    <div class="main">
-      <el-table :data="studentStore.briefEntities" style="width: 100%"
-        :default-sort="{ prop: 'grade', order: 'descending' }">
-        <el-table-column prop="grade" label="Grade" sortable :filters="grades.map((grade, index) => {
-          return {
-            text: grade,
-            value: index
-          }
-        })" :filter-method="(value: number, student: any) => student.grade === value">
-          <template #default="scope">
-            <span>{{ grades[scope.row.grade] }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="name" label="Name" />
-        <el-table-column label="Sex">
-          <template #default="scope">
-            <span>{{ scope.row.sex ? 'male' : 'female' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="school" label="School" />
-        <el-table-column prop="character" label="Character" />
-      </el-table>
-      <div v-if="editingStudent" class="student-info">
-        <div class="button-group">
-          <el-button v-if="mode === 'view'" type="primary" @click="editStudent">Edit</el-button>
-          <template v-else>
-            <el-button type="primary" @click="saveStudent">Save</el-button>
-            <el-button @click="cancelEdit">Cancel</el-button>
-          </template>
-        </div>
-        <el-form ref="studentForm" :model="editingStudent" :disabled="mode === 'view'" status-icon :rules="rules"
-          label-width="120px">
-          <el-form-item label="Name" prop="name">
-            <el-input v-model="editingStudent.name" />
-          </el-form-item>
-          <el-form-item label="Grade" prop="grade">
-            <grade-select v-model="editingStudent.grade"></grade-select>
-          </el-form-item>
-        </el-form>
-      </div>
-      <el-empty v-else />
-    </div>
+    <el-button type="primary" @click="addStudent">Add Student</el-button>
+    <el-table :data="studentStore.briefEntities" class="students-table"
+      :default-sort="{ prop: 'grade', order: 'descending' }">
+      <el-table-column prop="grade" label="Grade" sortable :filters="grades.map((grade, index) => {
+        return {
+          text: grade,
+          value: index
+        }
+      })" :filter-method="(value: number, student: StudentBriefWithId) => student.grade === value">
+        <template #default="scope">
+          <span>{{ grades[scope.row.grade] }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="name" label="Name" />
+      <el-table-column prop="sex" label="Sex" :filter-multiple="false" :filters="[
+        { text: 'male', value: true },
+        { text: 'female', value: false },
+      ]" :filter-method="(value: boolean, student: StudentBriefWithId) => student.sex === value">
+        <template #default="scope">
+          <span>{{ scope.row.sex ? 'male' : 'female' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="school" label="School" />
+      <el-table-column prop="character" label="Character" />
+      <el-table-column label="Operations">
+        <template #default="scope">
+          <el-button size="small" type="primary" @click="studentDetails(scope.row)">Details</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
   </div>
+  <el-dialog v-model="dialogVisible" width="800" :close-on-click-modal="false" @close="onClose">
+    <el-form ref="studentForm" :model="editingStudent" :disabled="mode === 'view'" status-icon :rules="rules"
+      label-width="120px">
+      <el-form-item label="Grade" prop="grade">
+        <grade-select v-model="editingStudent.grade"></grade-select>
+      </el-form-item>
+      <el-form-item label="Name" prop="name">
+        <el-input v-model="editingStudent.name" />
+      </el-form-item>
+      <el-form-item label="Sex" prop="sex">
+        <el-select v-model="editingStudent.sex">
+          <el-option label="male" :value="true" />
+          <el-option label="female" :value="false" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="School" prop="school">
+        <el-input v-model="editingStudent.school" />
+      </el-form-item>
+      <el-form-item label="Character" prop="character">
+        <el-input v-model="editingStudent.character" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <template v-if="mode === 'view'">
+        <el-button type="primary" @click="editStudent">Edit</el-button>
+        <el-popconfirm title="Are you sure to delete this?" @confirm="deleteStudent">
+          <template #reference>
+            <el-button type="danger">Delete</el-button>
+          </template>
+        </el-popconfirm>
+      </template>
+      <template v-else>
+        <el-button type="primary" @click="saveStudent">Save</el-button>
+        <el-button @click="cancelEdit">Cancel</el-button>
+      </template>
+    </template>
+  </el-dialog>
 </template>
 
 <style scoped>
 .container {
-  display: flex;
   padding: 50px 5vw;
 }
 
-.left {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.left ul {
+.students-table {
   margin-top: 20px;
-}
-
-.main {
-  flex-grow: 1;
-  padding: 50px;
-}
-
-.student-info {
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  padding: 0 50px;
-}
-
-.button-group {
-  position: absolute;
-  left: 700px;
 }
 
 form {
   display: flex;
+  flex-wrap: wrap;
 }
 
 form>div {

@@ -135,12 +135,18 @@ const cancelEdit = () => {
   removeUnloadConfirm()
 }
 const deleteCourse = async () => {
-  await courseStore.deleteById(route.params.id as string)
+  const courseId = route.params.id as string
+  await Promise.all([
+    courseStore.deleteById(courseId),
+    ...courseStudentStore.briefEntities.filter((courseStudent) => courseStudent.courseId === courseId)
+      .map((courseStudent) => courseStudentStore.deleteById(courseStudent.id))
+  ])
   dialogVisible.value = false
 }
 const onClose = () => {
   router.push('/courses/')
 }
+const BASE_URL = import.meta.env.BASE_URL
 </script>
 
 <template>
@@ -177,7 +183,7 @@ const onClose = () => {
         <el-form-item label="Students" prop="studentIds">
           <template v-if="mode === 'view'">
             <el-link v-for="studentId in editingCourse.studentIds" :key="studentId" type="primary"
-              :href="`/students/${studentId}`">{{ studentStore.briefEntityMap[studentId].name }}</el-link>
+              :href="`${BASE_URL}/students/${studentId}`">{{ studentStore.briefEntityMap[studentId].name }}</el-link>
           </template>
           <el-select v-else v-model="editingCourse.studentIds" multiple :clearable="true"
             no-data-text="No students in current grade" :multiple-limit="3">

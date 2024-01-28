@@ -18,6 +18,6 @@ export interface Student extends StudentBrief {
   scoreRecords: ScoreRecord[]
 }
 
-const useStudentStore = elonStore<StudentBrief, Student>('students', ['name', 'grade'])
+const useStudentStore = elonStore<StudentBrief, Student>('students', ['name', 'grade', 'sex', 'school', 'character'])
 
 export { useStudentStore }
