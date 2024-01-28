@@ -35,15 +35,22 @@ export const elonStore = <
       }
     },
     actions: {
-      getById(id: string) {
-        if (!id || this.entityMap[id]) {
+      getById(id: string, callback: (entity: Entity) => void = () => {}) {
+        if (!id) {
+          return
+        }
+        if (this.entityMap[id]) {
+          callback(this.entityMap[id])
           return
         }
         onSnapshot(doc(storeCollection, id), (newDoc) => {
-          this.entityMap[id] = {
+          const entity = {
             ...newDoc.data(),
             ...this.briefEntityMap[id]
           } as Entity
+          this.entityMap[id] = entity
+          callback(entity)
+          callback = () => {}
         })
       },
       async setById(id: string, entity: Entity) {
@@ -73,6 +80,7 @@ export const elonStore = <
         const newDoc = doc(storeCollection)
         this.getById(newDoc.id)
         await this.setById(newDoc.id, entity)
+        return newDoc.id
       },
       async deleteById(id: string) {
         await customPromise(

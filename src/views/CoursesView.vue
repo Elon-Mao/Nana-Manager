@@ -3,7 +3,7 @@ import { ref, watch, computed, onMounted, nextTick, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCourseStore, type Course } from '@/stores/courses'
 import { useStudentStore } from '@/stores/students'
-import { useCourseStudentStore } from '@/stores/course-student'
+import { useCourseStudentStore, type CourseStudent, type CourseStudentBrief } from '@/stores/course-student'
 import { getFormatDate } from '@/common/dateTools'
 import { addUnloadConfirm, removeUnloadConfirm } from '@/common/beforeunload'
 import CourseSchedule from '@/components/CourseSchedule.vue'
@@ -24,13 +24,42 @@ const initCourse = {
   startTime: '',
   endTime: '',
   grade: 0,
-  studentIds: [],
   content: '',
   homework: '',
+  studentIds: []
 }
 const editingCourse = ref<Course & {
   studentIds: string[]
 }>({ ...initCourse })
+
+type EditingStudent = Omit<CourseStudent, keyof CourseStudentBrief>
+const editingStudents = ref<Record<string, EditingStudent>>({})
+watch(() => editingCourse.value.studentIds, (newIds) => {
+  const courseId = route.params.id as string
+  newIds.forEach((studentId) => {
+    if (editingStudents.value[studentId]) {
+      return
+    }
+    const courseStudent = courseStudentStore.briefEntities.find((briefEntity) =>
+      briefEntity.studentId === studentId && briefEntity.courseId === courseId)
+    if (courseStudent) {
+      courseStudentStore.getById(courseStudent.id, (entity) => {
+        editingStudents.value[studentId] = {
+          lastCompletion: entity.lastCompletion || '',
+          lastCorrect: entity.lastCorrect || '',
+          personalReview: entity.personalReview || ''
+        }
+      })
+    } else {
+      editingStudents.value[studentId] = {
+        lastCompletion: '',
+        lastCorrect: '',
+        personalReview: ''
+      }
+    }
+  })
+}, { immediate: true })
+
 const mondayDateList = computed(() => {
   const difDay = (new Date(date.value).getDay() + 6) % 7
   return [...Array(5).keys()].map((i) => {
@@ -106,7 +135,7 @@ const editCourse = () => {
 
 const saveCourse = async () => {
   await courseForm.value!.validate()
-  const courseId = route.params.id as string
+  let courseId = route.params.id as string
   const sameDateCourses = courseStore.briefEntities
     .filter((course) => course.date === editingCourse.value.date && course.id !== courseId)
   for (const course of sameDateCourses) {
@@ -116,7 +145,7 @@ const saveCourse = async () => {
     }
   }
   if (mode.value === 'add') {
-    await courseStore.addEntity(editingCourse.value)
+    courseId = await courseStore.addEntity(editingCourse.value)
   } else {
     await Promise.all([
       courseStore.setById(courseId, editingCourse.value),
@@ -124,12 +153,11 @@ const saveCourse = async () => {
         .map((courseStudent) => courseStudentStore.deleteById(courseStudent.id))
     ])
   }
-  await Promise.all(editingCourse.value.studentIds.map((studentId) => courseStudentStore.addEntity({
-    courseId, studentId,
-    lastCompletionRate: '',
-    lastCorrectRate: '',
-    personalReview: ''
-  })))
+  await Promise.all(editingCourse.value.studentIds
+    .map((studentId) => courseStudentStore.addEntity({
+      courseId, studentId,
+      ...editingStudents.value[studentId]
+    })))
   dialogVisible.value = false
   removeUnloadConfirm()
 }
@@ -183,16 +211,6 @@ const BASE_URL = import.meta.env.BASE_URL
           <el-time-select v-model="editingCourse.endTime" :min-time="editingCourse.startTime" :clearable="false"
             start="08:00" step="00:30" end="21:30" />
         </el-form-item>
-        <el-form-item label="Students" prop="studentIds">
-          <template v-if="mode === 'view'">
-            <el-link v-for="studentId in editingCourse.studentIds" :key="studentId" type="primary"
-              :href="`${BASE_URL}/students/${studentId}`">{{ studentStore.briefEntityMap[studentId].name }}</el-link>
-          </template>
-          <el-select v-else v-model="editingCourse.studentIds" multiple :clearable="true"
-            no-data-text="No students in current grade" :multiple-limit="3">
-            <el-option v-for="student in gradeStudents" :key="student.id" :label="student.name" :value="student.id" />
-          </el-select>
-        </el-form-item>
       </div>
       <el-form-item class="form-textarea" label="Content" prop="content">
         <el-input v-model="editingCourse.content" :rows="2" type="textarea" />
@@ -200,6 +218,29 @@ const BASE_URL = import.meta.env.BASE_URL
       <el-form-item class="form-textarea" label="Homework" prop="homework">
         <el-input v-model="editingCourse.homework" :rows="2" type="textarea" />
       </el-form-item>
+      <div class="form-select">
+        <el-form-item label="Students" prop="studentIds">
+          <el-select v-model="editingCourse.studentIds" multiple :clearable="true"
+            no-data-text="No students in current grade" :multiple-limit="3">
+            <el-option v-for="student in gradeStudents" :key="student.id" :label="student.name" :value="student.id" />
+          </el-select>
+        </el-form-item>
+      </div>
+      <template v-for="studentId in editingCourse.studentIds" :key="studentId">
+        <el-link type="primary" :href="`${BASE_URL}/students/${studentId}`">{{
+          studentStore.briefEntityMap[studentId].name }}</el-link>
+        <template v-if="editingStudents[studentId]">
+          <el-form-item class="form-textarea" label="Last Completion" prop="lastCompletion">
+            <el-input v-model="editingStudents[studentId].lastCompletion" :rows="2" type="textarea" />
+          </el-form-item>
+          <el-form-item class="form-textarea" label="Last Correct" prop="lastCorrect">
+            <el-input v-model="editingStudents[studentId].lastCorrect" :rows="2" type="textarea" />
+          </el-form-item>
+          <el-form-item class="form-textarea" label="Personal Review" prop="personalReview">
+            <el-input v-model="editingStudents[studentId].personalReview" :rows="2" type="textarea" />
+          </el-form-item>
+        </template>
+      </template>
     </el-form>
     <template #footer>
       <template v-if="mode === 'view'">

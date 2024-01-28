@@ -1,13 +1,13 @@
 import { elonStore } from './elonStore'
 
-interface CourseStudentBrief {
+export interface CourseStudentBrief {
   courseId: string
   studentId: string
 }
 
 export interface CourseStudent extends CourseStudentBrief {
-  lastCompletionRate: string
-  lastCorrectRate: string
+  lastCompletion: string
+  lastCorrect: string
   personalReview: string
 }
 
@@ -16,6 +16,6 @@ export interface CourseStudentWithId extends CourseStudent {
 }
 
 const useCourseStudentStore = elonStore<CourseStudentBrief, CourseStudent>('course-student',
-  ['courseId', 'studentId'], ['lastCompletionRate', 'lastCorrectRate', 'personalReview'])
+  ['courseId', 'studentId'], ['lastCompletion', 'lastCorrect', 'personalReview'])
 
 export { useCourseStudentStore }
