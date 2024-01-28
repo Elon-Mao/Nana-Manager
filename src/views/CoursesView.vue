@@ -79,17 +79,12 @@ const getStudentIds = (courseId: string, newCourse: Course) => {
 watch(
   () => route.params.id,
   async (newId) => {
-    courseStore.getById(newId as string)
-  }, { immediate: true }
-)
-watch(
-  () => courseStore.entityMap[route.params.id as string], (newCourse) => {
-    if (newCourse) {
+    courseStore.getById(newId as string, (entity) => {
       mode.value = 'view'
       courseForm.value?.resetFields()
-      editingCourse.value = getStudentIds(route.params.id as string, newCourse)
+      editingCourse.value = getStudentIds(newId as string, entity)
       dialogVisible.value = true
-    }
+    })
   }, { immediate: true }
 )
 
@@ -178,6 +173,23 @@ const onClose = () => {
   router.push('/courses/')
 }
 const BASE_URL = import.meta.env.BASE_URL
+const copySummary = (studentId: string) => {
+  const courseStudent = editingStudents.value[studentId]
+  navigator.clipboard.writeText(`家长您好，给您反馈一下孩子1月26日英语上课情况
+上节课作业反馈：
+${courseStudent.lastCompletion}
+作业完成情况和正确率反馈：
+${courseStudent.lastCorrect}
+
+📝课堂内容
+${editingCourse.value.content}
+
+课堂综评
+${courseStudent.personalReview}
+
+课后作业
+${editingCourse.value.homework}`)
+}
 </script>
 
 <template>
@@ -227,8 +239,11 @@ const BASE_URL = import.meta.env.BASE_URL
         </el-form-item>
       </div>
       <template v-for="studentId in editingCourse.studentIds" :key="studentId">
-        <el-link type="primary" :href="`${BASE_URL}/students/${studentId}`">{{
-          studentStore.briefEntityMap[studentId].name }}</el-link>
+        <el-form class="course-student">
+          <el-link type="primary" :href="`${BASE_URL}/students/${studentId}`">{{
+            studentStore.briefEntityMap[studentId].name }}</el-link>
+          <el-button type="primary" @click="copySummary(studentId)">Copy Summary</el-button>
+        </el-form>
         <template v-if="editingStudents[studentId]">
           <el-form-item class="form-textarea" label="Last Completion" prop="lastCompletion">
             <el-input v-model="editingStudents[studentId].lastCompletion" :rows="2" type="textarea" />
@@ -293,5 +308,10 @@ form a {
 
 .form-textarea {
   width: 680px;
+}
+
+.course-student {
+  margin-bottom: 20px;
+  display: flex;
 }
 </style>

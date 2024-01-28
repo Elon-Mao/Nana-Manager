@@ -30,17 +30,12 @@ const mode = ref('view')
 watch(
   () => route.params.id,
   async (newId) => {
-    studentStore.getById(newId as string)
-  }, { immediate: true }
-)
-watch(
-  () => studentStore.entityMap[route.params.id as string], (newStudent) => {
-    if (newStudent) {
+    studentStore.getById(newId as string, (entity) => {
       mode.value = 'view'
       studentForm.value?.resetFields()
-      editingStudent.value = { ...newStudent }
+      editingStudent.value = { ...entity }
       dialogVisible.value = true
-    }
+    })
   }, { immediate: true }
 )
 
